@@ -63,6 +63,14 @@ import { ref } from 'vue'
 import { db } from 'src/boot/firebase'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
+// Recibimos la prop usuario del padre
+const props = defineProps({
+  usuario: {
+    type: String,
+    default: 'desconocido'
+  }
+})
+
 const nombre = ref('')
 const legajo = ref('')
 const modelo = ref('')
@@ -78,7 +86,8 @@ const registrarEntrada = async () => {
       numeroSerie: numeroSerie.value,
       fecha: serverTimestamp(),
       tipo: 'entrada',
-      estado: 'sin resolver'  // <-- campo nuevo agregado
+      estado: 'sin resolver',
+      usuario: props.usuario // Aquí usamos la prop que llega del padre
     })
 
     // Limpiar formulario
@@ -90,7 +99,7 @@ const registrarEntrada = async () => {
     // Mostrar modal de éxito
     dialogoExito.value = true
 
-    // Cierra el modal automáticamente después de 3 segundos
+    // Cerrar modal automáticamente después de 3 segundos
     setTimeout(() => {
       dialogoExito.value = false
     }, 3000)

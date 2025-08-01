@@ -48,7 +48,7 @@
 
     <!-- Contenedor de página que cambia según la sección -->
     <q-page-container class="q-pa-md">
-      <component :is="paginaSeleccionada" />
+      <component :is="paginaSeleccionada" :usuario="usuario" />
     </q-page-container>
 
   </q-layout>
