@@ -8,7 +8,9 @@
         <q-btn flat dense round icon="menu" @click="drawer = !drawer" />
 
         <q-toolbar-title>
-          📦 Sistema de Stock
+          Sistema de Stock
+          <q-icon name="desktop_windows" color="white" />
+          <q-icon name="print" color="white" />
         </q-toolbar-title>
 
         <div class="q-mr-md">
@@ -34,14 +36,19 @@
           <q-item-section>Buscar</q-item-section>
         </q-item>
 
+        <q-item clickable v-ripple @click="paginaActual = 'registro'">
+          <q-item-section avatar><q-icon name="receipt_long" /></q-item-section>
+          <q-item-section>Registro</q-item-section>
+        </q-item>
+
         <q-item clickable v-ripple @click="paginaActual = 'registro-entrada'">
           <q-item-section avatar><q-icon name="receipt_long" /></q-item-section>
-          <q-item-section>Registro - Entra</q-item-section>
+          <q-item-section>Pendientes</q-item-section>
         </q-item>
 
         <q-item clickable v-ripple @click="paginaActual = 'registro-salida'">
           <q-item-section avatar><q-icon name="receipt_long" /></q-item-section>
-          <q-item-section>Registro - Salida</q-item-section>
+          <q-item-section>Resueltos</q-item-section>
         </q-item>
       </q-list>
     </q-drawer>
@@ -57,6 +64,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import BuscarPage from './secciones/BuscarPage.vue'
+import Registro from './secciones/RegistroStock.vue'
 import RegistroEntra from './secciones/RegistroEntra.vue'
 import RegistroSalida from './secciones/RegistroSalida.vue'
 
@@ -73,6 +81,8 @@ const paginaSeleccionada = computed(() => {
       return BuscarPage
     case 'registro-entrada':
       return RegistroEntra
+    case 'registro':
+      return Registro
     case 'registro-salida':
       return RegistroSalida
     default:

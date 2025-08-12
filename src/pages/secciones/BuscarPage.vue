@@ -17,16 +17,31 @@
       <q-banner class="bg-grey-3 text-grey-9">No se encontraron resultados.</q-banner>
     </div>
 
-<q-list v-else>
-  <q-item v-for="item in resultados" :key="item.id" clickable @click="abrirModal(item)">
-    <q-item-section>
-      <div class="text-bold">📦 {{ item.nombre }}</div>
-      <div>Legajo: {{ item.legajo }}</div>
-      <div>Modelo: {{ item.modelo }}</div>
-    </q-item-section>
-  </q-item>
-</q-list>
-
+    <q-list v-else>
+      <q-item
+        v-for="item in resultados"
+        :key="item.id"
+        clickable
+        @click="abrirModal(item)"
+        :disable="item.bloqueado === true"
+      >
+        <q-item-section>
+          <div class="text-bold">
+            <q-icon
+              :name="item.tipoEquipo === 'PC' ? 'desktop_windows' : (item.tipoEquipo === 'IMPRESORA' ? 'print' : 'device_unknown')"
+              color="primary"
+              class="q-mr-sm"
+            />
+            {{ item.nombre }}
+          </div>
+          <div>Legajo: {{ item.legajo }}</div>
+          <div>Modelo: {{ item.modelo }}</div>
+        </q-item-section>
+        <q-item-section side v-if="item.bloqueado === true">
+          <q-icon name="block" color="red" size="md" />
+        </q-item-section>
+      </q-item>
+    </q-list>
 
     <!-- Modal edición -->
     <q-dialog v-model="modalOpen" persistent>
@@ -37,20 +52,21 @@
           <div><strong>Legajo:</strong> {{ itemSeleccionado?.legajo }}</div>
           <div><strong>Modelo:</strong> {{ itemSeleccionado?.modelo }}</div>
           <div><strong>Número de Serie:</strong> {{ itemSeleccionado?.numeroSerie }}</div>
-          <div class="q-mt-md">
-            <q-select
-              v-model="nuevoEstado"
-              :options="['sin resolver', 'resuelto']"
-              label="Estado"
-              dense
-              filled
-            />
-          </div>
+          <q-input v-model="nombreRetira" label="Nombre de quien retira" filled class="q-mt-md" :disable="itemSeleccionado?.fechaRetiro" />
+          <q-input v-model="legajoRetira" label="Legajo de quien retira" filled class="q-mt-md" :disable="itemSeleccionado?.fechaRetiro" />
+          <q-input v-model="areaRetira" label="Área de quien retira" filled class="q-mt-md" :disable="itemSeleccionado?.fechaRetiro" />
+          <q-select
+            v-model="nuevoEstado"
+            :options="['sin resolver', 'resuelto']"
+            label="Estado"
+            dense
+            filled
+            class="q-mt-md"
+          />
         </q-card-section>
-
         <q-card-actions align="right">
           <q-btn flat label="Cancelar" color="primary" v-close-popup @click="modalOpen = false" />
-          <q-btn flat label="Guardar" color="primary" @click="confirmarCambioEstado" />
+          <q-btn flat label="Guardar" color="primary" @click="modalSeguro = true" :disable="itemSeleccionado?.fechaRetiro" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -67,6 +83,20 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- Modal seguro -->
+    <q-dialog v-model="modalSeguro" persistent>
+      <q-card>
+        <q-card-section>
+          <div class="text-h6">¿Estás seguro?</div>
+          <div>Esta acción registrará el retiro y no podrá ser editada nuevamente.</div>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancelar" color="primary" v-close-popup @click="modalSeguro = false" />
+          <q-btn flat label="Confirmar" color="negative" @click="confirmarCambioEstado(); modalSeguro = false" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </div>
 </template>
 
@@ -75,15 +105,26 @@ import { ref, watch } from 'vue'
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore'
 import { db } from 'boot/firebase'
 
+const props = defineProps({
+  usuario: {
+    type: String,
+    default: 'desconocido'
+  }
+})
+
 const terminoBusqueda = ref('')
 const resultados = ref([])
 const datosStock = ref([])
 
 const modalOpen = ref(false)
 const modalConfirmacion = ref(false)
+const modalSeguro = ref(false)
 
 const itemSeleccionado = ref(null)
 const nuevoEstado = ref('sin resolver')
+const nombreRetira = ref('')
+const legajoRetira = ref('')
+const areaRetira = ref('')
 
 async function cargarDatos() {
   try {
@@ -112,8 +153,12 @@ function buscar() {
 }
 
 function abrirModal(item) {
+  if (item.bloqueado === true) return // No abrir si está bloqueado
   itemSeleccionado.value = { ...item }
   nuevoEstado.value = item.estado || 'sin resolver'
+  nombreRetira.value = ''
+  legajoRetira.value = ''
+  areaRetira.value = ''
   modalOpen.value = true
 }
 
@@ -121,14 +166,29 @@ async function confirmarCambioEstado() {
   if (!itemSeleccionado.value) return
   try {
     const docRef = doc(db, 'stock', itemSeleccionado.value.id)
-    await updateDoc(docRef, { estado: nuevoEstado.value })
+    const fechaRetiro = new Date()
+
+    await updateDoc(docRef, {
+      estado: nuevoEstado.value,
+      nombreRetira: nombreRetira.value,
+      legajoRetira: legajoRetira.value,
+      areaRetira: areaRetira.value,
+      fechaRetiro: fechaRetiro,
+      usuarioRetiro: props.usuario,
+      bloqueado: true // <-- Nuevo dato booleano
+    })
     // Actualizar localmente
     const index = datosStock.value.findIndex(i => i.id === itemSeleccionado.value.id)
     if (index !== -1) {
       datosStock.value[index].estado = nuevoEstado.value
+      datosStock.value[index].nombreRetira = nombreRetira.value
+      datosStock.value[index].legajoRetira = legajoRetira.value
+      datosStock.value[index].areaRetira = areaRetira.value
+      datosStock.value[index].fechaRetiro = fechaRetiro
+      datosStock.value[index].usuarioRetiro = props.usuario
+      datosStock.value[index].bloqueado = true // <-- Actualiza localmente
     }
-    buscar() // actualizar resultados visibles
-
+    buscar()
     modalOpen.value = false
     modalConfirmacion.value = true
   } catch (error) {
